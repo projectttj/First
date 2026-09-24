@@ -110,9 +110,11 @@ function isMastered(c){return c.seen>=3&&c.correct>=3&&c.interval>=7*DAY&&accura
 function isWeak(c){return c.seen>0&&!isMastered(c)&&((c.wrong||0)>0&&(c.streak||0)<2||accuracy(c)<.72||c.interval<6*HOUR)}
 function categories(arr){
   const now=Date.now();
+  const due=arr.filter(x=>{const c=cardState(x.id);return c.seen>0&&c.due<=now});
+  const dueIds=new Set(due.map(x=>x.id));
   return{
-    due:arr.filter(x=>{const c=cardState(x.id);return c.seen>0&&c.due<=now}),
-    weak:arr.filter(x=>isWeak(cardState(x.id))),
+    due,
+    weak:arr.filter(x=>!dueIds.has(x.id)&&isWeak(cardState(x.id))),
     fresh:arr.filter(x=>cardState(x.id).seen===0),
     mature:arr.filter(x=>isMastered(cardState(x.id)))
   };
