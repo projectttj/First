@@ -81,11 +81,15 @@ const DAY=86400000, HOUR=3600000, MIN=60000;
 const defaultState={attempts:0,correct:0,seen:{},cards:{},confusions:{},modeStats:{},sessionPick:0};
 let storageOK=true, state;
 function freshState(){return JSON.parse(JSON.stringify(defaultState))}
+function normalizeState(s){
+  s=s||freshState();s.seen=s.seen||{};s.cards=s.cards||{};s.confusions=s.confusions||{};s.modeStats=s.modeStats||{};
+  s.sessionPick=Number.isFinite(s.sessionPick)?s.sessionPick:0;s.attempts=Number.isFinite(s.attempts)?s.attempts:0;s.correct=Number.isFinite(s.correct)?s.correct:0;return s;
+}
 try{
-  const raw=window.localStorage.getItem(KEY);
-  state=raw?JSON.parse(raw):freshState();
+  let raw=window.localStorage.getItem(KEY);
+  if(!raw)raw=window.localStorage.getItem("quoteTrainer_v4")||window.localStorage.getItem("quoteTrainer_v3");
+  state=normalizeState(raw?JSON.parse(raw):freshState());
 }catch(e){storageOK=false;state=freshState()}
-state.seen=state.seen||{};state.cards=state.cards||{};state.confusions=state.confusions||{};state.modeStats=state.modeStats||{};state.sessionPick=state.sessionPick||0;state.attempts=state.attempts||0;state.correct=state.correct||0;
 
 const app=document.getElementById("app"), mode=document.getElementById("mode"), era=document.getElementById("era"), focus=document.getElementById("focus"), prov=document.getElementById("prov"), search=document.getElementById("search"), stats=document.getElementById("stats"), progressBar=document.getElementById("progressBar");
 const importFile=document.getElementById("importFile");
@@ -253,8 +257,8 @@ function completion(p){
   document.getElementById("revealOnly").onclick=()=>finish("",true);
 }
 function authorRecall(p){
-  const people=[...new Set(p.map(x=>x.person))],person=people[Math.floor(Math.random()*people.length)],entries=authorEntries(person).filter(x=>p.some(y=>y.id===x.id));
-  const target=entries[Math.floor(Math.random()*entries.length)];markSeen(target);
+  const target=chooseScheduled(p),person=target.person,entries=authorEntries(person).filter(x=>p.some(y=>y.id===x.id));
+  markSeen(target);
   app.innerHTML='<div class="card"><div class="author">'+esc(person)+'</div><div class="prompt">Recall any quotation by this person/voice. Type what you remember, or think of it and reveal.</div>'+profileHTML(person)+'<textarea id="freeInput" placeholder="Type any quote you remember"></textarea><button class="action" id="compare">Compare with corpus</button><button class="action" id="revealQuotes">Reveal quotes</button><div id="ex"></div></div>';
   let done=false;
   function reveal(typed){if(done)return;done=true;let best=null,bestScore=0;if(typed){for(const e of entries){const sc=textSimilarity(typed,e.quote);if(sc>bestScore){bestScore=sc;best=e}}}
@@ -300,7 +304,7 @@ document.getElementById("exportBtn").onclick=()=>{
   const blob=new Blob([JSON.stringify({version:5,exportedAt:new Date().toISOString(),state},null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="quote-trainer-progress.json";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
 };
 document.getElementById("importBtn").onclick=()=>importFile.click();
-importFile.onchange=async()=>{const f=importFile.files[0];if(!f)return;try{const obj=JSON.parse(await f.text());if(!obj.state)throw new Error("Invalid progress file");state=obj.state;state.seen=state.seen||{};state.cards=state.cards||{};state.confusions=state.confusions||{};state.modeStats=state.modeStats||{};save();newCard()}catch(e){alert("Could not import progress file.")}importFile.value=""};
+importFile.onchange=async()=>{const f=importFile.files[0];if(!f)return;try{const obj=JSON.parse(await f.text());if(!obj.state)throw new Error("Invalid progress file");state=normalizeState(obj.state);save();newCard()}catch(e){alert("Could not import progress file.")}importFile.value=""};
 mode.onchange=()=>{search.value="";newCard()};era.onchange=newCard;focus.onchange=newCard;prov.onchange=newCard;search.oninput=()=>{if(mode.value==="browse")browse()};
 document.addEventListener("keydown",e=>{if(e.key===" "&&mode.value==="study"){const r=document.getElementById("reveal");if(r){e.preventDefault();r.click()}}});
 renderStats();newCard();
